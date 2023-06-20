@@ -1,0 +1,288 @@
+/*
+ *  Tiger.cup
+ *
+ *  Author:  John Lasseter
+ *
+ *  Full CUP parser specification for Andrew Appel's Tiger language
+ *
+ *  Last Modified:  03/20/2016
+ *
+ */
+
+package tigerc.syntax.parse;
+
+import tigerc.syntax.absyn.*;
+import tigerc.util.Pair;
+import tigerc.util.Symbol;
+
+import java.util.List;
+
+parser code  {: 
+  // Methods and variables to be placed within the generated parser class
+
+  private tigerc.util.ErrorMsg errorMsg;
+
+  public void syntax_error (java_cup.runtime.Symbol current) {
+    report_error("Syntax error (" + current.sym + ")", current);
+  }
+
+  public void report_error (String message, java_cup.runtime.Symbol info) {
+    errorMsg.error(info.left, message);
+  }
+
+ 
+  public TigerParse (java_cup.runtime.Scanner lexer, 
+                     tigerc.util.ErrorMsg errorMsg) {
+    super(lexer);
+    this.errorMsg = errorMsg;
+  }
+:};
+
+action code {: 
+  // Methods and variables to be placed in the "actions" class of the parser
+  public tigerc.util.Symbol sym(String s) { 
+    return tigerc.util.Symbol.sym(s); 
+  }
+:};
+
+terminal String ID, STRING;
+terminal Integer INT;
+terminal IMPORT, COMMA, COLON, SEMICOLON, LPAREN, RPAREN, 
+    LBRACK, RBRACK, LBRACE, RBRACE, DOT, PLUS, MINUS, 
+    TIMES, DIVIDE, EQ, NEQ, LT, LE, GT, GE, AND, OR, 
+    ASSIGN, ARRAY, IF, THEN, ELSE, WHILE, FOR, TO, DO, 
+    LET, IN, END, OF, BREAK, NIL, FUNCTION, VAR, TYPE,
+    UMINUS;
+
+nonterminal Exp program, exp;
+nonterminal ExpOp exp_bop;
+nonterminal Var lvalue, lval_not_id;
+
+nonterminal List<Exp> arg_list, args_one_or_more, exp_seq, seq_one_or_more;
+
+nonterminal List<Pair<Symbol,Exp>> field_exp_list, fieldexps_one_or_more;
+nonterminal Pair<Symbol, Exp> field_exp;
+
+nonterminal Decl decl;
+nonterminal List<Decl> decl_list, decls_one_or_more;
+nonterminal List<DeclTy> one_or_more_ty_decls;
+nonterminal List<DeclFn> one_or_more_fn_decls;
+
+nonterminal DeclVar decl_var;
+nonterminal DeclTy decl_ty;
+nonterminal DeclFn decl_fn;
+nonterminal List<Pair<Symbol, Symbol>> tyfield_list, tyfields_one_or_more;
+nonterminal Pair<Symbol, Symbol> tyfield;
+
+nonterminal Ty type;
+
+
+precedence left OR;
+precedence left AND;
+precedence nonassoc EQ, NEQ, LT, LE, GT, GE;
+precedence left PLUS, MINUS;
+precedence left TIMES, DIVIDE;
+precedence right UMINUS;
+
+
+start with program;
+
+program ::= exp:e {: RESULT = e; :};
+
+exp ::= INT:i    {: RESULT= new ExpInt(ileft, i.intValue()); :}
+    | STRING:s {: RESULT= new ExpString(sleft, s); :}
+	| exp_bop:e {: RESULT = e; :}
+    | MINUS:m exp:e {: 
+                  RESULT= new ExpOp(mleft, new ExpInt(eleft, 0), 
+                                    ExpOp.Op.MIN, e); :} %prec UMINUS    
+    | lvalue:v {: RESULT = new ExpVar(vleft,v); :}
+    | NIL:n  {: RESULT= new ExpNil(nleft); :}
+    | BREAK:b  {: RESULT = new ExpBreak(bleft); :}
+                      
+    | lvalue:v ASSIGN exp:e {: 
+                  RESULT = new ExpAssign(vleft,v,e); :}
+    | ID:f LPAREN arg_list:vs RPAREN {: 
+                  RESULT = new ExpCall(fleft, sym(f), vs);  :}
+    | LPAREN exp_seq:es RPAREN {: 
+                  RESULT = new ExpSeq(esleft,es); :}
+    | ID:t LBRACE field_exp_list:fs RBRACE {: 
+                  RESULT = new ExpRecord(tleft, sym(t), fs);  :}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+    | ID:t LBRACK exp:sz RBRACK OF exp:init {: 
+                  RESULT = new ExpArray(tleft, sym(t), sz, init); :}
+    | IF:i exp:t THEN exp:e {: 
+                  RESULT = new ExpIf(ileft, t, e); :} 
+    | IF:i exp:t THEN exp:e1 ELSE exp:e2 {: 
+                  RESULT = new ExpIfElse(ileft, t, e1,e2); :} 
+    | WHILE:w exp:t DO exp:body {: 
+                  RESULT = new ExpWhile(wleft, t, body); :}
+    | FOR:f ID:i ASSIGN exp:lo TO exp:hi DO exp:body {:
+                  RESULT = new ExpFor(fleft,sym(i),lo,hi,body); :}
+    | LET:l decl_list:ds IN exp_seq:body END {:
+                  RESULT = new ExpLet(lleft, ds, new ExpSeq(bodyleft,body)); :}
+;
+
+ exp_bop ::=
+      exp:e1 PLUS:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.PLUS, e2); :}      
+    | exp:e1 MINUS:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.MIN, e2); :}      
+    | exp:e1 TIMES:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.MUL, e2); :}      
+    | exp:e1 DIVIDE:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.DIV, e2); :}      
+    | exp:e1 EQ:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.EQ, e2); :}      
+    | exp:e1 NEQ:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.NE, e2); :}      
+    | exp:e1 LT:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.LT, e2); :}      
+    | exp:e1 LE:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.LE, e2); :}      
+    | exp:e1 GT:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.GT, e2); :}      
+    | exp:e1 GE:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.GE, e2); :}      
+    | exp:e1 AND:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.AND, e2); :}      
+    | exp:e1 OR:op exp:e2 {: 
+                  RESULT = new ExpOp(e1left, e1, ExpOp.Op.OR, e2); :}      
+;
+
+
+lvalue ::= 
+      ID:x {: RESULT = new VarSimple(xleft, sym(x)); :}
+    | lval_not_id:ni  {: RESULT = ni; :}
+;
+
+lval_not_id ::=  lvalue:v DOT ID:x {:  
+              RESULT = new VarField(xleft, v, sym(x)); :}
+    | ID:a LBRACK exp:i RBRACK {: 
+              RESULT = new VarSubscript(aleft,new VarSimple(aleft,sym(a)),i); :}
+    | lval_not_id:ni LBRACK exp:e RBRACK {: 
+              RESULT = new VarSubscript(nileft, ni, e); :}
+;
+
+
+arg_list ::=  
+          {:  RESULT = new java.util.ArrayList<Exp>();  :}
+    | args_one_or_more:es {: RESULT = es; :}
+;
+args_one_or_more ::= 
+      exp:e {: List<Exp> ls = new java.util.ArrayList<Exp>();
+      		   ls.add(e);
+               RESULT = ls; :}
+    | args_one_or_more:es COMMA exp:e  {: 
+    		  es.add(e);
+              RESULT = es; :}
+;
+
+
+exp_seq ::=
+           {: RESULT = new java.util.ArrayList<>(); :}
+    | seq_one_or_more:es {: RESULT = es; :}
+;
+seq_one_or_more ::=
+      exp:e {: List<Exp> ls = new java.util.ArrayList<Exp>();
+      		   ls.add(e);
+               RESULT = ls; :}
+    |  seq_one_or_more:es SEMICOLON exp:e  {:
+    		  es.add(e);
+              RESULT = es; :}
+;
+
+
+field_exp_list ::=   
+             {:  RESULT =  new java.util.ArrayList<>();  :}
+    | fieldexps_one_or_more:es {: RESULT = es; :}
+;
+field_exp ::= ID:f EQ exp:e {: 
+              RESULT = new Pair<Symbol,Exp>(sym(f),e); :}
+;
+fieldexps_one_or_more ::= 
+      field_exp:fe {: 
+               List<Pair<Symbol,Exp>> ls = 
+                                 new java.util.ArrayList<Pair<Symbol,Exp>>();
+      		   ls.add(fe);
+               RESULT = ls;  :}
+    | fieldexps_one_or_more:fes COMMA field_exp:fe  {:
+    		  fes.add(fe);
+              RESULT = fes;  :}
+;
+
+decl_list ::= 
+             {:  RESULT = new java.util.ArrayList<Decl>();  :}
+    | decls_one_or_more:ds {: RESULT = ds; :}
+;
+
+decls_one_or_more ::=
+      decl:d {: 
+               List<Decl> ls = new java.util.ArrayList<Decl>();
+      		   ls.add(d);
+               RESULT = ls;  :}
+    | decls_one_or_more:ds decl:d {: 
+    		  ds.add(d);
+              RESULT = ds; :}
+;
+decl ::= decl_var:dv  {: RESULT = dv; :}
+    | one_or_more_ty_decls:dt  {:  RESULT = new DeclGroupType(dtleft,dt);  :}
+    | one_or_more_fn_decls:df  {: RESULT = new DeclGroupFunction(dfleft,df); :}
+;
+decl_var ::= 
+      VAR:v ID:name ASSIGN exp:init {: 
+              RESULT = new DeclVar(vleft, sym(name), null, init);  :}
+    | VAR:v ID:name COLON ID:t ASSIGN exp:init {: 
+              RESULT = new DeclVar(vleft, sym(name), sym(t), init);  :}
+;
+
+decl_ty ::= TYPE:tp ID:i EQ type:t {: RESULT = new DeclTy(tpleft,sym(i),t); :}
+;
+one_or_more_ty_decls ::= decl_ty:dt {: 
+              List<DeclTy> ls = new java.util.ArrayList<DeclTy>();
+      		  ls.add(dt);
+              RESULT = ls; :}
+    | one_or_more_ty_decls:dts decl_ty:dt  {: 
+    		  dts.add(dt);
+              RESULT = dts; :}
+;
+type ::= ID:tid  {:  RESULT = new TyName(tidleft,sym(tid)); :}
+    | LBRACE:l tyfield_list:tys RBRACE  {: RESULT = new TyRecord(lleft,tys); :}
+    | ARRAY:a OF ID:tid  {:  RESULT = new TyArray(aleft, sym(tid));  :}
+;
+
+decl_fn ::= FUNCTION:f ID:i LPAREN tyfield_list:ps RPAREN EQ exp:body {: 
+              RESULT = new DeclFn(fleft, sym(i), ps, null, body); :}
+    | FUNCTION:f ID:i LPAREN tyfield_list:ps RPAREN COLON ID:rty EQ exp:body {: 
+              RESULT = new DeclFn(fleft, sym(i), ps, 
+                                  new TyName(rtyleft,sym(rty)), body); 
+      :} 
+;                           
+one_or_more_fn_decls ::= 
+       decl_fn:df {: 
+               List<DeclFn> ls = new java.util.ArrayList<DeclFn>();
+      		   ls.add(df);
+               RESULT = ls; :}
+    |  one_or_more_fn_decls:dfs decl_fn:df {:
+    		  dfs.add(df);
+              RESULT = dfs;  :}
+;
+tyfield ::= ID:i COLON ID:tid {: 
+              RESULT = new Pair<Symbol,Symbol>(sym(i), sym(tid)); :}
+;  
+tyfield_list ::= 
+      /* empty */ {:  
+               RESULT = new java.util.ArrayList<Pair<Symbol, Symbol>>(); 
+      :}
+    | tyfields_one_or_more:tfs  {: RESULT = tfs; :}
+;
+tyfields_one_or_more ::= 
+      tyfield:p {: 
+               List<Pair<Symbol, Symbol>> ls = 
+                    new java.util.ArrayList<Pair<Symbol, Symbol>>();
+      		   ls.add(p);
+               RESULT = ls; 
+      :}
+    | tyfields_one_or_more:ps COMMA tyfield:p  {:  
+    		  ps.add(p);
+              RESULT = ps;  
+      :}
+;

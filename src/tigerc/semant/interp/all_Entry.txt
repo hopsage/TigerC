@@ -1,0 +1,97 @@
+/**************************************************************
+ *  tigerc/src/semant/Entry.java
+ *
+ *  Author:  John Lasseter
+ *  Created:  10/01/2014
+ *  Last Modified: 01/13/2016
+ *
+ * The value environment usually has two kinds of entries: variable entries and
+ * function entries.  Entry definitions vary by package: analysis, interp, and 
+ * translate, and in each case, we need a hierarchy specific to that package 
+ * (in order to keep the use of Env type-safe).  Yuck.
+ *  
+ **************************************************************/
+
+package tigerc.semant.interp;
+
+/************* Entry interface **********************/
+
+public interface Entry {
+	// something about these empty interfaces strikes me as a cheap hack
+}
+
+
+////////////////////////////////////////////////////////////////////////////
+
+/**************************************************************
+ *  tigerc/src/semant/VarEntry.java
+ *
+ *  Author:  John Lasseter
+ *  Created:  10/01/2014
+ *  Last Modified: 10/01/2014
+ *
+ *  History: 10/01/2014 (jhel) created
+ *           
+ *  The value environment has two kinds of entries: variable entries and 
+ *  function entries. 
+ *  
+ *  Source code taken from Andrew Appel's _Modern Compiler Implementation
+ *  Updated (J. Lasseter) to use generics and the tigerc.util.List class.
+ *  
+ **************************************************************/
+
+package tigerc.semant.interp;
+
+import tigerc.semant.interp.values.IValue;
+
+public class VarEntry implements Entry {
+
+	// For interpretation, the only thing we need for a VarEntry is its value
+	
+	public final IValue val;
+	
+	public VarEntry(IValue v) {
+		val = v;
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////
+
+/**************************************************************
+ *  tigerc/src/semant/interp/FunEntry.java
+ *
+ *  Author:  John Lasseter
+ *  Created:  01/3/2016
+ *  Last Modified: 01/13/216
+ *  History: 01/13/2016 (jhel) created
+ *
+ *  The value environment has two kinds of entries: variable entries and 
+ *  function entries.  For interpretation, the information we need to represent 
+ *  a function consists of the parameter list, the function body, and the  
+ *  environment that was present at the time of the function's definition.  
+ *  This structure is more commonly known as a "closure".
+ *  
+ **************************************************************/
+
+package tigerc.semant.interp;
+
+import tigerc.syntax.absyn.Exp;
+import tigerc.util.Symbol;
+import tigerc.semant.interp.values.IValue;
+import tigerc.semant.*;
+
+import java.util.List;
+
+public class FunEntry implements Entry {
+    
+	public final List<Symbol> parameters;
+	public final Exp body;
+	public final Env<IValue> env;
+
+
+	public FunEntry(List<Symbol> ps, Exp b, Env<IValue> e) {
+		parameters = ps;
+		body = b;
+		env = e;
+	}
+}

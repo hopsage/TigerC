@@ -1,0 +1,2 @@
+java -jar /Applications/development/java_tools/java-cup-11a.jar -interface -package syntax.parse -parser TigerParse  -symbols TigerSyms -expect $2 $1
+   

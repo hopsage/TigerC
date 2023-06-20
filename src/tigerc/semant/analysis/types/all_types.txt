@@ -1,0 +1,260 @@
+package tigerc.semant.types;
+
+public interface Type {
+
+	Type actual();
+
+	boolean coerceTo(Type t);
+}
+
+
+****************************************************************************
+/**
+ *  Interface with constants for the four primitive types:
+ *  INT, NIL, STRING, and VOID	
+ */
+
+package tigerc.semant.types;
+
+/**
+ * @author jlasseter
+ *
+ */
+public interface PrimTy {
+	Type INT_T = INT.instance();
+	Type NIL_T = NIL.instance();
+	Type STRING_T = STRING.instance();
+	Type VOID_T = VOID.instance();
+}
+
+****************************************************************************
+package tigerc.semant.types;
+
+public class INT implements Type {
+	private INT() {
+	}
+
+	private static INT inst = new INT();
+
+	public static INT instance() {
+		return inst;
+	}
+
+	public Type actual() {
+		return this;
+	}
+
+	public boolean coerceTo(Type t) {
+		return (t.actual() instanceof INT);
+	}
+
+	public String toString() {
+		return "int";
+	}
+}
+
+****************************************************************************
+package tigerc.semant.types;
+
+public class NIL implements Type {
+	private NIL() {
+	}
+
+	private static NIL inst = new NIL();
+
+	public static NIL instance() {
+		return inst;
+	}
+
+	public Type actual() {
+		return this;
+	}
+
+	public boolean coerceTo(Type t) {
+		Type a = t.actual();
+		return (a instanceof RECORD) || (a instanceof NIL);
+	}
+
+	public String toString() {
+		return "nil";
+	}
+}
+
+****************************************************************************
+package tigerc.semant.types;
+
+public class STRING implements Type {
+	private STRING() {
+	}
+
+	private static STRING inst = new STRING();
+
+	public static STRING instance() {
+		return inst;
+	}
+
+	public Type actual() {
+		return this;
+	}
+
+	public boolean coerceTo(Type t) {
+		return (t.actual() instanceof STRING);
+	}
+
+	public String toString() {
+		return "string";
+	}
+}
+
+****************************************************************************
+package tigerc.semant.types;
+
+public class VOID implements Type {
+	private VOID() {
+	}
+
+	private static VOID inst = new VOID();
+
+	public static VOID instance() {
+		return inst;
+	}
+
+	public Type actual() {
+		return this;
+	}
+
+	public boolean coerceTo(Type t) {
+		return (t.actual() instanceof VOID);
+	}
+
+	public String toString() {
+		return "void";
+	}
+}
+
+****************************************************************************
+package tigerc.semant.types;
+
+import tigerc.util.Symbol;
+
+public class THUNK implements Type {
+	public Symbol name;
+	private Type binding;
+
+	public THUNK(Symbol n) {
+		name = n;
+	}
+
+	public boolean isLoop() {
+		Type b = binding;
+		boolean any;
+		binding = null;
+		if (b == null)
+			any = true;
+		else if (b instanceof THUNK)
+			any = ((THUNK) b).isLoop();
+		else
+			any = false;
+		binding = b;
+		return any;
+	}
+
+	public Type actual() {
+		return binding.actual();
+	}
+
+	public boolean coerceTo(Type t) {
+		return this.actual().coerceTo(t);
+	}
+
+	public void bind(Type t) {
+		binding = t;
+	}
+
+	public String toString() {
+		return name.toString();
+	}
+}
+
+****************************************************************************
+package tigerc.semant.types;
+
+
+public class ERROR implements Type {
+	private ERROR() {
+	}
+	
+	private static ERROR inst = new ERROR();
+
+	public static ERROR instance() {
+		return inst;
+	}
+
+	public Type actual() {
+		return this;
+	}
+
+	public boolean coerceTo(Type t) {
+		return false;
+	}
+
+    public String toString() { return "<< error >>"; }
+}
+
+****************************************************************************
+package tigerc.semant.types;
+
+public class ARRAY implements Type {
+  public Type element;
+
+  public ARRAY (Type e) { element = e;}
+
+  public Type actual () { return this; }
+
+  public boolean coerceTo (Type t) {
+    return this==t.actual();
+  }
+
+  public String toString () {
+    return "array of " + element.toString();
+  }
+}
+
+****************************************************************************
+
+package tigerc.semant.types;
+
+import tigerc.util.Symbol;
+import tigerc.util.List;
+import tigerc.util.Pair;
+
+public class RECORD implements Type {
+	public final List<Pair<Symbol, Type>> fields;
+
+	public Type actual() {
+		return this;
+	}
+
+	public RECORD(List<Pair<Symbol, Type>> fs) {
+		fields = fs;
+	}
+
+	public boolean coerceTo(Type t) {
+		return this == t.actual();
+	}
+
+	public String toString() {
+		String result = "{ ";
+		List<Pair<Symbol, Type>> cur = fields;
+
+		while (cur != null) {
+			result = result + cur.head.fst + ":" + cur.head.snd;
+			// fieldName:fieldtype
+			cur = cur.tail;
+			if (cur != null)
+				result += ",";
+		}
+
+		return result + " }";
+	}
+}
